@@ -113,7 +113,7 @@ def display_rentals(df, title):
                 c1, c2, c3 = st.columns([2,1,1])
                 with c1:
                     st.markdown(f"**Equipamento:** {row['name']} | **Cliente:** {row['full_name']}")
-                    st.markdown(f"**Valor do Aluguel:** R$ {row['valor']:.2f} | **Custo do Frete:** R$ {row.get('freight_cost', 0.0):.2f}")
+                    st.markdown(f"**Valor do Aluguel:** R$ {row['valor']:.2f} | **Custo do Frete:** R$ {float(row['freight_cost'] or 0.0):.2f}")
                     st.markdown(f"**Devolução:** {pd.to_datetime(row['end_date']).strftime('%d/%m/%Y')} {'<span style=\'color:red;\'><b>(ATRASADO)</b></span>' if is_overdue else ''}", unsafe_allow_html=True)
                 with c2:
                     pdf_bytes = create_contract_pdf(row)

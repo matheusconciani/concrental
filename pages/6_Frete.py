@@ -39,13 +39,13 @@ with st.expander("Configurações de Cálculo de Frete", expanded=True):
         fuel_consumption = st.number_input(
             "Consumo de combustível do veículo (Km/L)",
             min_value=0.1,
-            value=user_settings.get("fuel_consumption", 10.0),
+            value=user_settings["fuel_consumption"],
             format="%.2f"
         )
         fuel_cost = st.number_input(
             "Custo do combustível (R$/L)",
             min_value=0.01,
-            value=user_settings.get("fuel_cost", 5.50),
+            value=user_settings["fuel_cost"],
             format="%.2f"
         )
         if st.form_submit_button("Salvar Configurações"):

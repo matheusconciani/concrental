@@ -302,18 +302,20 @@ def update_rental_in_db(rental_id, column, value):
 
 def get_user_settings(user_id):
     conn = get_db_connection()
-    if conn is None: return None
+    if conn is None: return {"fuel_consumption": 10.0, "fuel_cost": 5.50}
     try:
         with conn.cursor() as cursor:
             cursor.execute("SELECT fuel_consumption, fuel_cost FROM user_settings WHERE user_id = %s", (user_id,))
             settings = cursor.fetchone()
             if settings:
-                return {"fuel_consumption": settings[0], "fuel_cost": settings[1]}
+                fuel_consumption = settings[0] if settings[0] is not None else 10.0
+                fuel_cost = settings[1] if settings[1] is not None else 5.50
+                return {"fuel_consumption": fuel_consumption, "fuel_cost": fuel_cost}
             else:
-                return {"fuel_consumption": 0.0, "fuel_cost": 0.0}
+                return {"fuel_consumption": 10.0, "fuel_cost": 5.50}
     except psycopg2.Error as e:
         st.error(f"Erro ao buscar configurações do usuário: {e}")
-        return None
+        return {"fuel_consumption": 10.0, "fuel_cost": 5.50}
 
 def update_user_settings(user_id, fuel_consumption, fuel_cost):
     conn = get_db_connection()
