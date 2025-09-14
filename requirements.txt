@@ -7,3 +7,4 @@ geopy
 fpdf2
 streamlit-cookies-manager
 validate-docbr
+filestack-python
