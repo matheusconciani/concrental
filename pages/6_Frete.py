@@ -1,4 +1,5 @@
 import streamlit as st
+import requests
 from db_management import (
     is_authenticated,
     logout,
@@ -136,19 +137,39 @@ with st.expander("Calculadora de Frete", expanded=True):
                             customer_coords = (customer_location.latitude, customer_location.longitude)
                             
                             # Calcular distância
-                            distance_one_way = geodesic(start_coords, customer_coords).kilometers
-                            total_distance = distance_one_way * 4
+                            # --- OSRM Integration ---
+                            # OSRM demo server URL
+                            osrm_url = "http://router.project-osrm.org/route/v1/driving/"
                             
-                            # Calcular custo
-                            total_fuel = total_distance / user_settings["fuel_consumption"]
-                            freight_cost = total_fuel * user_settings["fuel_cost"]
+                            # Format coordinates for OSRM API: longitude,latitude
+                            start_lon_lat = f"{start_coords[1]},{start_coords[0]}"
+                            customer_lon_lat = f"{customer_coords[1]},{customer_coords[0]}"
                             
-                            st.session_state.calculated_freight_cost = freight_cost
+                            # Construct the OSRM API request URL
+                            request_url = f"{osrm_url}{start_lon_lat};{customer_lon_lat}?overview=false"
+                            
+                            response = requests.get(request_url)
+                            data = response.json()
+                            
+                            if response.status_code == 200 and data['code'] == 'Ok':
+                                # Distance is in meters, convert to kilometers
+                                distance_one_way = data['routes'][0]['distance'] / 1000
+                                total_distance = distance_one_way * 4
+                                
+                                # Calcular custo
+                                total_fuel = total_distance / user_settings["fuel_consumption"]
+                                freight_cost = total_fuel * user_settings["fuel_cost"]
+                                
+                                st.session_state.calculated_freight_cost = freight_cost
 
-                            st.success(f"Cálculo concluído com sucesso!")
-                            st.info(f"Distância de ida: {distance_one_way:.2f} km")
-                            st.info(f"Percurso total (4x): {total_distance:.2f} km")
-                            st.metric("Custo do Frete", f"R$ {freight_cost:.2f}")
+                                st.success(f"Cálculo concluído com sucesso!")
+                                st.info(f"Distância de ida (OSRM): {distance_one_way:.2f} km")
+                                st.info(f"Percurso total (4x): {total_distance:.2f} km")
+                                st.metric("Custo do Frete", f"R$ {freight_cost:.2f}")
+
+                            else:
+                                st.error(f"Erro ao calcular rota com OSRM: {data.get('message', 'Erro desconhecido')}")
+                                st.info("Verifique se os endereços são válidos e tente novamente.")
 
                         else:
                             st.error("Não foi possível encontrar as coordenadas para o endereço do cliente. Verifique o endereço cadastrado no CRM.")
