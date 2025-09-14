@@ -6,7 +6,8 @@ from db_management import (
     update_user_settings,
     get_user_addresses,
     add_user_address,
-    delete_user_address
+    delete_user_address,
+    get_all_customers
 )
 from streamlit_cookies_manager import CookieManager
 from geopy.distance import geodesic
@@ -29,6 +30,7 @@ if st.sidebar.button("Sair"):
 st.title("Cálculo de Frete")
 
 user_id = st.session_state.user_id
+customers_df = get_all_customers(user_id)
 
 # --- Seção de Configurações ---
 with st.expander("Configurações de Cálculo de Frete", expanded=True):
@@ -102,16 +104,24 @@ with st.expander("Calculadora de Frete", expanded=True):
     st.subheader("Calcular valor para o contrato")
     user_addresses = get_user_addresses(user_id)
 
-    if user_addresses.empty or user_settings.get("fuel_consumption") == 0.0:
-        st.warning("Por favor, cadastre pelo menos um endereço de partida e configure o consumo de combustível para usar a calculadora.")
+    if user_addresses.empty or user_settings["fuel_consumption"] == 0.0 or customers_df.empty:
+        st.warning("Por favor, cadastre pelo menos um endereço de partida, configure o consumo de combustível e cadastre clientes para usar a calculadora.")
     else:
         with st.form("freight_form"):
             start_address_name = st.selectbox(
                 "Escolha o endereço de partida",
                 options=user_addresses["address_name"].tolist()
             )
-            customer_address = st.text_input("Endereço do Cliente", placeholder="Digite o endereço de entrega/coleta")
             
+            # Replace text input with selectbox for customer
+            selected_customer_name = st.selectbox(
+                "Escolha o Cliente",
+                options=customers_df["full_name"].tolist()
+            )
+            
+            # Get the customer's address from the selected customer
+            customer_address = customers_df[customers_df["full_name"] == selected_customer_name]["address"].iloc[0]
+
             if st.form_submit_button("Calcular Frete"):
                 if customer_address:
                     try:
@@ -141,15 +151,8 @@ with st.expander("Calculadora de Frete", expanded=True):
                             st.metric("Custo do Frete", f"R$ {freight_cost:.2f}")
 
                         else:
-                            st.error("Não foi possível encontrar as coordenadas para o endereço do cliente.")
+                            st.error("Não foi possível encontrar as coordenadas para o endereço do cliente. Verifique o endereço cadastrado no CRM.")
                     except Exception as e:
                         st.error(f"Ocorreu um erro ao calcular a distância: {e}")
                 else:
-                    st.warning("Por favor, insira o endereço do cliente.")
-
-    if "calculated_freight_cost" in st.session_state:
-        if st.button("Enviar Valor do Frete para o Contrato"):
-            st.session_state.freight_cost_to_contract = st.session_state.calculated_freight_cost
-            st.success("Valor do frete foi salvo e será adicionado ao próximo contrato que você criar.")
-            # Optional: clear the calculated value after sending
-            # del st.session_state.calculated_freight_cost
+                    st.warning("O cliente selecionado não possui um endereço cadastrado no CRM.")
