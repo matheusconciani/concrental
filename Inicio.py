@@ -35,10 +35,10 @@ def login_form():
         submitted = st.form_submit_button("Entrar")
 
         if submitted:
-            user_found, user_id = verify_user(username, password)
+            user_found, user_id, db_username = verify_user(username, password)
             if user_found:
                 st.session_state.logged_in = True
-                st.session_state.username = username
+                st.session_state.username = db_username
                 st.session_state.user_id = user_id
                 cookies['user_id'] = user_id
                 cookies.save()

@@ -56,20 +56,21 @@ def is_authenticated(cookies):
 
 def verify_user(username, password):
     conn = get_db_connection()
-    if conn is None: return False, None
+    if conn is None: return False, None, None
     user_found = False
     user_id = None
+    db_username = None
     try:
         with conn.cursor() as cursor:
-            cursor.execute("SELECT id, password_hash FROM users WHERE username = %s", (username,))
+            cursor.execute("SELECT id, password_hash, username FROM users WHERE username ILIKE %s", (username,))
             result = cursor.fetchone()
             if result:
-                user_id, stored_hash = result
+                user_id, stored_hash, db_username = result
                 if bcrypt.checkpw(password.encode('utf-8'), stored_hash.encode('utf-8')):
                     user_found = True
     except psycopg2.Error as e:
         st.error(f"Erro ao verificar usuário: {e}")
-    return user_found, user_id
+    return user_found, user_id, db_username
 
 
 def get_user_id_by_username(username):
