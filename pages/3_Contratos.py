@@ -66,6 +66,7 @@ if customer_id_filter:
 # --- Create New Rental Form ---
 if not customer_id_filter:
     with st.expander("Criar Novo Aluguel"):
+        freight_cost_from_session = st.session_state.get("freight_cost_to_contract", 0.0)
         with st.form(key="new_rental_form", clear_on_submit=True):
             st.subheader("Detalhes do Novo Contrato")
             if not customers_df.empty:
@@ -75,7 +76,9 @@ if not customer_id_filter:
                 selected_customer_name = None
             available_equipment = equipment_df[equipment_df['status'] == 'Disponível']
             selected_equipment_names = st.multiselect("Escolha o(s) Equipamento(s)", options=available_equipment['name'].tolist(), placeholder="Selecione...")
-            valor_total = st.number_input("Valor Total do Aluguel (R$)", min_value=0.01, placeholder=0.00, format="%.2f")
+            col1, col2 = st.columns(2)
+            valor_total = col1.number_input("Valor Total do Aluguel (R$)", min_value=0.01, placeholder="0.00", format="%.2f")
+            freight_cost = col2.number_input("Custo do Frete (R$)", min_value=0.0, value=float(freight_cost_from_session), format="%.2f")
             col1, col2 = st.columns(2)
             start_date = col1.date_input("Data de Início")
             end_date = col2.date_input("Data de Fim")
@@ -87,8 +90,10 @@ if not customer_id_filter:
                         customer_id = customers_df[customers_df['full_name'] == selected_customer_name]['customer_id'].iloc[0]
                         equipment_ids_to_rent = available_equipment[available_equipment['name'].isin(selected_equipment_names)]['equipment_id'].tolist()
                         valor_per_item = valor_total / len(equipment_ids_to_rent)
-                        success, message = add_rentals_to_db(user_id, customer_id, equipment_ids_to_rent, start_date, end_date, valor_per_item)
+                        success, message = add_rentals_to_db(user_id, customer_id, equipment_ids_to_rent, start_date, end_date, valor_per_item, freight_cost)
                         if success:
+                            if "freight_cost_to_contract" in st.session_state:
+                                del st.session_state.freight_cost_to_contract
                             st.success(message)
                             st.rerun()
                         else:
@@ -108,6 +113,7 @@ def display_rentals(df, title):
                 c1, c2, c3 = st.columns([2,1,1])
                 with c1:
                     st.markdown(f"**Equipamento:** {row['name']} | **Cliente:** {row['full_name']}")
+                    st.markdown(f"**Valor do Aluguel:** R$ {row['valor']:.2f} | **Custo do Frete:** R$ {row.get('freight_cost', 0.0):.2f}")
                     st.markdown(f"**Devolução:** {pd.to_datetime(row['end_date']).strftime('%d/%m/%Y')} {'<span style=\'color:red;\'><b>(ATRASADO)</b></span>' if is_overdue else ''}", unsafe_allow_html=True)
                 with c2:
                     pdf_bytes = create_contract_pdf(row)

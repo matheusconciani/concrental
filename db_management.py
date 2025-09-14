@@ -249,10 +249,10 @@ def get_all_rentals(user_id):
     """
     return pd.read_sql(query, conn, params=(user_id,))
 
-def add_rentals_to_db(user_id, customer_id, equipment_ids, start_date, end_date, valor):
+def add_rentals_to_db(user_id, customer_id, equipment_ids, start_date, end_date, valor, freight_cost=0):
     conn = get_db_connection()
     if conn is None: return False, "Falha na conexão."
-    sql = "INSERT INTO rentals (user_id, rental_id, customer_id, equipment_id, start_date, end_date, status, payment_status, valor) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)"
+    sql = "INSERT INTO rentals (user_id, rental_id, customer_id, equipment_id, start_date, end_date, status, payment_status, valor, freight_cost) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
     try:
         with conn.cursor() as cursor:
             cursor.execute('SELECT rental_id FROM rentals ORDER BY rental_id DESC LIMIT 1')
@@ -262,7 +262,7 @@ def add_rentals_to_db(user_id, customer_id, equipment_ids, start_date, end_date,
                 last_num = int(last_id[0].replace("RENT", ""))
             for i, equipment_id in enumerate(equipment_ids):
                 new_rental_id = f"RENT{last_num + 1 + i:03d}"
-                cursor.execute(sql, (user_id, new_rental_id, customer_id, equipment_id, start_date, end_date, "Ativo", "Em Aberto", valor))
+                cursor.execute(sql, (user_id, new_rental_id, customer_id, equipment_id, start_date, end_date, "Ativo", "Em Aberto", valor, freight_cost))
                 cursor.execute('UPDATE equipments SET status = %s, times_rented = times_rented + 1 WHERE equipment_id = %s', ("Alugado", equipment_id))
             conn.commit()
         st.cache_data.clear()
@@ -297,3 +297,77 @@ def update_rental_in_db(rental_id, column, value):
     except psycopg2.Error as e:
         conn.rollback()
         st.error(f"Erro ao atualizar aluguel: {e}")
+
+# --- Funções de Configurações do Usuário ---
+
+def get_user_settings(user_id):
+    conn = get_db_connection()
+    if conn is None: return None
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT fuel_consumption, fuel_cost FROM user_settings WHERE user_id = %s", (user_id,))
+            settings = cursor.fetchone()
+            if settings:
+                return {"fuel_consumption": settings[0], "fuel_cost": settings[1]}
+            else:
+                return {"fuel_consumption": 0.0, "fuel_cost": 0.0}
+    except psycopg2.Error as e:
+        st.error(f"Erro ao buscar configurações do usuário: {e}")
+        return None
+
+def update_user_settings(user_id, fuel_consumption, fuel_cost):
+    conn = get_db_connection()
+    if conn is None: return False, "Falha na conexão."
+    try:
+        with conn.cursor() as cursor:
+            # Upsert (Insert or Update)
+            cursor.execute("""
+                INSERT INTO user_settings (user_id, fuel_consumption, fuel_cost)
+                VALUES (%s, %s, %s)
+                ON CONFLICT (user_id) DO UPDATE
+                SET fuel_consumption = EXCLUDED.fuel_consumption,
+                    fuel_cost = EXCLUDED.fuel_cost;
+            """, (user_id, fuel_consumption, fuel_cost))
+            conn.commit()
+        return True, "Configurações salvas com sucesso!"
+    except psycopg2.Error as e:
+        conn.rollback()
+        return False, f"Erro no banco de dados: {e}"
+
+# --- Funções de Endereços do Usuário ---
+
+def get_user_addresses(user_id):
+    conn = get_db_connection()
+    if conn is None: return pd.DataFrame()
+    return pd.read_sql("SELECT * FROM user_addresses WHERE user_id = %s ORDER BY address_name", conn, params=(user_id,))
+
+def add_user_address(user_id, address_name, address):
+    conn = get_db_connection()
+    if conn is None: return False, "Falha na conexão."
+    try:
+        location = geolocator.geocode(address)
+        if not location:
+            return False, "Endereço não encontrado ou inválido."
+
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                INSERT INTO user_addresses (user_id, address_name, address, latitude, longitude)
+                VALUES (%s, %s, %s, %s, %s)
+            """, (user_id, address_name, address, location.latitude, location.longitude))
+            conn.commit()
+        return True, "Endereço adicionado com sucesso!"
+    except psycopg2.Error as e:
+        conn.rollback()
+        return False, f"Erro no banco de dados: {e}"
+
+def delete_user_address(address_id):
+    conn = get_db_connection()
+    if conn is None: return False, "Falha na conexão."
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("DELETE FROM user_addresses WHERE id = %s", (address_id,))
+            conn.commit()
+        return True, "Endereço deletado com sucesso."
+    except psycopg2.Error as e:
+        conn.rollback()
+        return False, f"Erro no banco de dados: {e}"
