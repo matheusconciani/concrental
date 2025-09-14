@@ -308,8 +308,17 @@ def get_user_settings(user_id):
             cursor.execute("SELECT fuel_consumption, fuel_cost FROM user_settings WHERE user_id = %s", (user_id,))
             settings = cursor.fetchone()
             if settings:
-                fuel_consumption = settings[0] if settings[0] is not None else 10.0
-                fuel_cost = settings[1] if settings[1] is not None else 5.50
+                # Ensure conversion to float, handling potential non-numeric values
+                try:
+                    fuel_consumption = float(settings[0]) if settings[0] is not None else 10.0
+                except (ValueError, TypeError):
+                    fuel_consumption = 10.0 # Default if conversion fails
+
+                try:
+                    fuel_cost = float(settings[1]) if settings[1] is not None else 5.50
+                except (ValueError, TypeError):
+                    fuel_cost = 5.50 # Default if conversion fails
+
                 return {"fuel_consumption": fuel_consumption, "fuel_cost": fuel_cost}
             else:
                 return {"fuel_consumption": 10.0, "fuel_cost": 5.50}
