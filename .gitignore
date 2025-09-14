@@ -1,0 +1,23 @@
+
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Streamlit
+.streamlit/
+
+# User Uploads
+documentos_clientes/
+contratos_assinados/
+temp_uploads/
+
+# Databases
+*.db
+
+# Environment
+.env
+
+# IDEs
+.idea/
+.vscode/

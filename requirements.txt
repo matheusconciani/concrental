@@ -1,0 +1,9 @@
+
+streamlit
+psycopg2-binary
+bcrypt
+pandas
+geopy
+fpdf2
+streamlit-cookies-manager
+validate-docbr
